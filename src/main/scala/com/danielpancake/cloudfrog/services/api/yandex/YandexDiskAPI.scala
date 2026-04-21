@@ -4,7 +4,7 @@ import com.danielpancake.cloudfrog.config.YandexAPIConfig
 import com.danielpancake.cloudfrog.services.api.APIError
 import com.danielpancake.cloudfrog.services.api.Decoders._
 import com.danielpancake.cloudfrog.services.api.yandex.YandexAPIObjects._
-import com.danielpancake.cloudfrog.utils.Utils._
+import com.danielpancake.cloudfrog.utils.Utils.splitPathIntoSubpaths
 
 import cats.Monad
 import cats.implicits._
@@ -64,7 +64,7 @@ class YandexDiskAPI[F[_]: Monad](private val config: YandexAPIConfig)(implicit v
       .header("Authorization", s"OAuth $accessToken")
 
     val response = request.send(backend)
-    response.map(handleResponse[DiskError, Status]).map(_.map(Status.unapply(_)))
+    response.map(handleResponse[DiskError, Status](_).map(Status.toOperationStatus))
   }
 
   /** See https://yandex.com/dev/disk/api/reference/create-folder.html

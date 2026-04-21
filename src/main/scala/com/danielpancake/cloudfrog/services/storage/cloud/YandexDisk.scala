@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 class YandexDisk[F[_]: Temporal](implicit api: YandexDiskAPI[F]) extends CloudStorage[F] {
   def authorize(code: String): F[APIResult[String]] =
     api.exchangeCodeForToken(code).flatMap {
-      case Right(token) => Temporal[F].pure(APIResult.Success(token.access_token))
+      case Right(token) => Temporal[F].pure(APIResult.Success(token.accessToken))
       case Left(err)    => Temporal[F].pure(APIResult.Failure(err))
     }
 
@@ -34,7 +34,7 @@ class YandexDisk[F[_]: Temporal](implicit api: YandexDiskAPI[F]) extends CloudSt
     val (path, _, _) = Utils.splitPathFilenameExt(destinationPath)
 
     val result: F[APIResult[Nothing]] = (for {
-      _          <- api.makedirs(accessToken, path).flatMap(Temporal[F].fromEither)
+      _          <- if (path.nonEmpty) api.makedirs(accessToken, path).flatMap(Temporal[F].fromEither) else Temporal[F].unit
       uploadLink <- api.uploadFileFromURL(accessToken, sourceURL, destinationPath).flatMap(Temporal[F].fromEither)
 
       _ <- checkUploadStatus(accessToken, uploadLink.href)(attempts = 10).flatMap {
