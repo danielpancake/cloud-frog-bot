@@ -1,6 +1,6 @@
 package com.danielpancake.cloudfrog.extensions
 
-import canoe.models.messages._
+import canoe.models.messages.{AnimationMessage, AudioMessage, DocumentMessage, PhotoMessage, StickerMessage, VideoMessage, VideoNoteMessage, VoiceMessage}
 import canoe.models.Chat
 import canoe.syntax.Expect
 
@@ -15,6 +15,8 @@ final case class MediaMessage(
 
 object CanoeMessages {
   val media: Expect[MediaMessage] = {
+    case m: AnimationMessage =>
+      MediaMessage(m.messageId, m.chat, m.date, m.animation.fileId, m.animation.fileUniqueId, m.animation.fileName)
     case m: AudioMessage =>
       MediaMessage(m.messageId, m.chat, m.date, m.audio.fileId, m.audio.fileUniqueId, m.audio.title)
     case m: DocumentMessage =>
@@ -26,6 +28,8 @@ object CanoeMessages {
       MediaMessage(m.messageId, m.chat, m.date, m.video.fileId, m.video.fileUniqueId, None)
     case m: VideoNoteMessage =>
       MediaMessage(m.messageId, m.chat, m.date, m.videoNote.fileId, m.videoNote.fileUniqueId, None)
+    case m: StickerMessage =>
+      MediaMessage(m.messageId, m.chat, m.date, m.sticker.fileId, m.sticker.fileUniqueId, None)
     case m: VoiceMessage =>
       MediaMessage(m.messageId, m.chat, m.date, m.voice.fileId, m.voice.fileUniqueId, None)
   }
