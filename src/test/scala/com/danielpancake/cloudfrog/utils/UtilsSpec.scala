@@ -33,4 +33,8 @@ class UtilsSpec extends AnyFlatSpec with Matchers {
   it should "handle empty paths" in {
     Utils.splitPathFilenameExt("") should be(("", "", ""))
   }
+
+  it should "handle root path without throwing" in {
+    Utils.splitPathFilenameExt("/") should be(("/", "", ""))
+  }
 }

@@ -85,15 +85,16 @@ class CloudFrogBot(
       cache: TokenCache[F, String, String],
       storage: CloudStorage[F]
   ): Scenario[F, Unit] = {
-    val codeFormat = """\d{7}""".r
+    val codeFormat = """[a-zA-Z0-9]{16}""".r
     for {
-      msg <- Scenario.expect(textMessage.matching("^/start " + codeFormat + "$"))
-      _   <- Scenario.eval(Logger[F].info(s"User in chat ${msg.chat.id} started oauth process"))
+      msg     <- Scenario.expect(textMessage.matching("^/start .+$"))
+      _       <- Scenario.eval(Logger[F].info(s"User in chat ${msg.chat.id} started oauth process"))
+      rawCode  = msg.text.stripPrefix("/start ").trim
 
-      _ <- codeFormat.findFirstIn(msg.text) match {
-        case Some(code) => oauthProcess(msg.chat, code)
-        case None       => Scenario.eval(msg.chat.send(Messages.invalidCode))
-      }
+      _ <- if (codeFormat.matches(rawCode))
+        oauthProcess(msg.chat, rawCode)
+      else
+        Scenario.eval(msg.chat.send(s"${Messages.invalidCode}\nCode: ${Utils.obfuscateMiddle(rawCode, 2)}"))
     } yield ()
   }
 
@@ -191,12 +192,12 @@ class CloudFrogBot(
 
     /** Get full path to file on Yandex.Disk. If file has a name, use it, otherwise use fileUniqueId
       */
-    def getFileFullPath(media: MediaMessage, filePath: String): String = {
-      val (path, _, ext) = Utils.splitPathFilenameExt(filePath)
-      val fileName       = media.fileName.getOrElse(s"${media.fileUniqueId}.$ext")
-
-      s"$path/$fileName"
-    }
+    def getFileFullPath(media: MediaMessage, filePath: String): F[String] =
+      Sync[F].delay {
+        val (path, _, ext) = Utils.splitPathFilenameExt(filePath)
+        val fileName       = media.fileName.getOrElse(s"${media.fileUniqueId}.$ext")
+        s"$path/$fileName"
+      }
 
     /** Upload file to Yandex.Disk
       */
@@ -242,7 +243,7 @@ class CloudFrogBot(
       }
 
       sourceURL = s"https://api.telegram.org/file/bot${config.bot.token}/$filePath"
-      fullPath  = getFileFullPath(media, filePath)
+      fullPath  <- Scenario.eval(getFileFullPath(media, filePath))
 
       _ <- uploadFile(token, sourceURL, fullPath).handleErrorWith { case err =>
         Scenario.eval(

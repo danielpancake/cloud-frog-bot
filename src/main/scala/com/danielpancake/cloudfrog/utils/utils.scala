@@ -1,5 +1,7 @@
 package com.danielpancake.cloudfrog.utils
 
+import org.apache.commons.io.FilenameUtils
+
 object Utils {
 
   /** Splits a path into a list of subpaths. Example: /a/b/c/d -> List(/a, /a/b, /a/b/c, /a/b/c/d)
@@ -25,16 +27,14 @@ object Utils {
     * @return
     *   A tuple of (path to the last folder, filename, extension)
     */
-  def splitPathFilenameExt(fullPath: String): (String, String, String) = {
-    val split    = fullPath.split("/").toList
-    val path     = split.init.mkString("/")
-    val fileName = split.last
-    val ext      = fileName.split("\\.").last
+  def obfuscateMiddle(s: String, visible: Int): String =
+    if (s.length <= visible * 2) s
+    else s.take(visible) + "*" * (s.length - visible * 2) + s.takeRight(visible)
 
-    (
-      path,
-      fileName,
-      if (ext == fileName) "" else ext
-    )
+  def splitPathFilenameExt(fullPath: String): (String, String, String) = {
+    val ext      = FilenameUtils.getExtension(fullPath)
+    val path     = FilenameUtils.getFullPathNoEndSeparator(fullPath)
+    val fileName = FilenameUtils.getName(fullPath)
+    (path, fileName, ext)
   }
 }

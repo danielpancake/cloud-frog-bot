@@ -34,8 +34,8 @@ class YandexDisk[F[_]: Temporal](implicit api: YandexDiskAPI[F]) extends CloudSt
     val (path, _, _) = Utils.splitPathFilenameExt(destinationPath)
 
     val result: F[APIResult[Nothing]] = (for {
-      _          <- api.makedirs(accessToken, path).flatMap(eitherToTemporal(_))
-      uploadLink <- api.uploadFileFromURL(accessToken, sourceURL, destinationPath).flatMap(eitherToTemporal(_))
+      _          <- api.makedirs(accessToken, path).flatMap(Temporal[F].fromEither)
+      uploadLink <- api.uploadFileFromURL(accessToken, sourceURL, destinationPath).flatMap(Temporal[F].fromEither)
 
       _ <- checkUploadStatus(accessToken, uploadLink.href)(attempts = 10).flatMap {
         case Right(OperationStatus.Success) => Temporal[F].pure(())
@@ -48,13 +48,6 @@ class YandexDisk[F[_]: Temporal](implicit api: YandexDiskAPI[F]) extends CloudSt
     result.handleErrorWith {
       case err: APIError => Temporal[F].pure(APIResult.Failure(err))
       case err           => Temporal[F].pure(APIResult.Failure(APIError("Upload failed", err.getMessage)))
-    }
-  }
-
-  private def eitherToTemporal[A](either: Either[APIError, A]): F[A] = {
-    either match {
-      case Right(value) => Temporal[F].pure(value)
-      case Left(err)    => Temporal[F].raiseError[A](err)
     }
   }
 

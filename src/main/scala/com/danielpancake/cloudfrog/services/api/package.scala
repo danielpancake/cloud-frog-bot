@@ -1,7 +1,8 @@
 package com.danielpancake.cloudfrog.services.api
 
 // Unified error response for all APIs to convert to
-case class APIError(error: String, description: String) extends Throwable {
+case class APIError(error: String, description: String)
+    extends Exception(s"APIError($error, $description)") {
   override def toString: String = s"APIError($error, $description)"
 }
 
