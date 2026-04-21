@@ -16,7 +16,7 @@ import canoe.models.{Chat, File}
 import canoe.models.messages.TextMessage
 import canoe.syntax._
 
-import cats.effect.{IO, IOApp, Sync}
+import cats.effect.{IO, Sync}
 import cats.implicits._
 
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -27,7 +27,7 @@ class CloudFrogBot(
     telegramClient: TelegramClient[IO],
     cloudStorage: CloudStorage[IO],
     tokenCache: TokenCache[IO, String, String]
-) extends IOApp.Simple {
+) {
 
   def run: IO[Unit] = {
     implicit val client: TelegramClient[IO]            = telegramClient
@@ -50,34 +50,30 @@ class CloudFrogBot(
 
   /** User login scenario: sends welcome message and login button
     */
-  def userLogin[F[_]: Logger: TelegramClient]: Scenario[F, Unit] = {
-    implicit val configImplicit: Config = config
+  def userLogin[F[_]: Logger: TelegramClient]: Scenario[F, Unit] =
     for {
       msg <- Scenario.expect(textMessage.matching("/start|/login"))
       _   <- Scenario.eval(Logger[F].info(s"User in chat ${msg.chat.id} started login process"))
-      _   <- Scenario.eval(msg.chat.send(Messages.welcomeMessage, keyboard = Messages.loginButton))
+      _   <- Scenario.eval(msg.chat.send(Messages.welcomeMessage, keyboard = Messages.loginButton(config)))
     } yield ()
-  }
 
   /** User logout scenario: removes token from cache and sends logout message
     */
-  def userLogout[F[_]: Logger: TelegramClient](implicit cache: TokenCache[F, String, String]): Scenario[F, Unit] = {
+  def userLogout[F[_]: Logger: TelegramClient](implicit cache: TokenCache[F, String, String]): Scenario[F, Unit] =
     for {
       msg <- Scenario.expect(textMessage.matching("/reset|/logout"))
       _   <- Scenario.eval(cache.del(msg.chat.id.toString))
       _   <- Scenario.eval(Logger[F].info(s"User in chat ${msg.chat.id} logged out"))
       _   <- Scenario.eval(msg.chat.send(Messages.logoutSuccess))
     } yield ()
-  }
 
   /** Show storage URL scenario: sends link to Yandex.Disk
     */
-  def showStorageURL[F[_]: TelegramClient]: Scenario[F, Unit] = {
+  def showStorageURL[F[_]: TelegramClient]: Scenario[F, Unit] =
     for {
       msg <- Scenario.expect(textMessage.matching("/disk"))
       _   <- Scenario.eval(msg.chat.send(Messages.yandexDiskLink.markdown))
     } yield ()
-  }
 
   /** Get start code scenario: checks if code is valid and starts oauth process
     */
@@ -85,7 +81,7 @@ class CloudFrogBot(
       cache: TokenCache[F, String, String],
       storage: CloudStorage[F]
   ): Scenario[F, Unit] = {
-    val codeFormat = """[a-zA-Z0-9]{16}""".r
+    val codeFormat = """[a-zA-Z0-9]+""".r
     for {
       msg     <- Scenario.expect(textMessage.matching("^/start .+$"))
       _       <- Scenario.eval(Logger[F].info(s"User in chat ${msg.chat.id} started oauth process"))
@@ -120,16 +116,16 @@ class CloudFrogBot(
           }
       } yield ()
 
-    def oathSuccess(access_token: String) =
+    def oauthSuccess(accessToken: String) =
       Logger[F].info(s"Successfully exchanged code for token for chat ${chat.id}") *>
-        redis.set(chat.id.toString, access_token) *>
+        redis.set(chat.id.toString, accessToken) *>
         chat.send(Messages.uploadInstructions)
 
-    def oathFailure(err: APIError) =
+    def oauthFailure(err: APIError) =
       Logger[F].error(s"Error while exchanging code for token: $err") *>
         chat.send(s"${Messages.loginFailure} (${err.description})")
 
-    def oathNoToken = chat.send(Messages.oauthFailed)
+    def oauthNoToken = chat.send(Messages.oauthFailed)
 
     for {
       msg <- Scenario.eval(chat.send(Messages.loginProcessing))
@@ -138,10 +134,10 @@ class CloudFrogBot(
         .flatMap {
           case APIResult.Success(token) =>
             updateMessage(msg, Messages.loginSuccess) *>
-              Scenario.eval(oathSuccess(token))
+              Scenario.eval(oauthSuccess(token))
 
-          case APIResult.Failure(err) => Scenario.eval(oathFailure(err))
-          case APIResult.Success      => Scenario.eval(oathNoToken)
+          case APIResult.Failure(err) => Scenario.eval(oauthFailure(err))
+          case APIResult.Success      => Scenario.eval(oauthNoToken)
         }
     } yield ()
   }
@@ -150,7 +146,7 @@ class CloudFrogBot(
     */
   def requireLogin[F[_]: Sync](
       chat: Chat
-  )(implicit cache: TokenCache[F, String, String], storage: CloudStorage[F]): Scenario[F, String] = {
+  )(implicit cache: TokenCache[F, String, String], storage: CloudStorage[F]): Scenario[F, String] =
     for {
       accessToken <- Scenario.eval(cache.get(chat.id.toString)).flatMap {
         case Some(value) => Scenario.pure(value)
@@ -161,7 +157,6 @@ class CloudFrogBot(
         case _                    => Scenario.done[F]
       }
     } yield accessToken
-  }
 
   /** Handle media scenario: downloads file and uploads it to Yandex.Disk
     */
@@ -182,13 +177,7 @@ class CloudFrogBot(
     /** Get file from Telegram API
       */
     def getFile(fileId: String): Scenario[F, File] =
-      Scenario
-        .eval(files.GetFile(fileId).call)
-        .attempt
-        .flatMap {
-          case Left(e)     => Scenario.eval(Sync[F].raiseError(new Exception(s"Error while getting file: $e")))
-          case Right(file) => Scenario.pure(file)
-        }
+      Scenario.eval(files.GetFile(fileId).call)
 
     /** Get full path to file on Yandex.Disk. If file has a name, use it, otherwise use fileUniqueId
       */
@@ -202,14 +191,11 @@ class CloudFrogBot(
     /** Upload file to Yandex.Disk
       */
     def uploadFile(accessToken: String, sourceURL: String, fullPath: String): Scenario[F, APIResult[Nothing]] =
-      for {
-        uploadF <- Scenario.eval(Sync[F].blocking(storage.uploadFile(accessToken, sourceURL, fullPath)))
-        result  <- Scenario.eval(uploadF)
-      } yield result
+      Scenario.eval(storage.uploadFile(accessToken, sourceURL, fullPath))
 
     /** Notify user that file was uploaded
       */
-    def notifyUploadResult(msg: TextMessage): Scenario[F, Unit] = {
+    def notifyUploadResult(msg: TextMessage): Scenario[F, Unit] =
       Scenario
         .eval(
           Logger[F].info(s"User in chat ${msg.chat.id} uploaded a file") *>
@@ -220,7 +206,6 @@ class CloudFrogBot(
           case Left(err) => Scenario.eval(Logger[F].error(s"Error while editing message: $err"))
           case _         => Scenario.done[F]
         }
-    }
 
     // Main scenario for handling media
     (for {

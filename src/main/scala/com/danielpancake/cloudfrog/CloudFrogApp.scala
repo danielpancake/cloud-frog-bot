@@ -27,15 +27,13 @@ object CloudFrogApp extends IOApp {
     Config
       .load()
       .flatMap {
-        case Right(cfg) => Logger[IO].info("Succesfully loaded config!") *> init(cfg)
+        case Right(cfg) => Logger[IO].info("Successfully loaded config!") *> init(cfg)
         case Left(err)  => Logger[IO].error(s"Failed to load config: $err") *> IO(ExitCode.Error)
       }
 
-  def init(config: Config) =
-    getResources(config).use {
-      case Left(err) => Logger[IO].error(err).as(ExitCode.Error)
-
-      case Right((telegram, redisClient, httpBackend)) => {
+  def init(config: Config): IO[ExitCode] =
+    getResources(config)
+      .use { case (telegram, redisClient, httpBackend) =>
         implicit val redis: RedisCommands[IO, String, String] = redisClient
 
         implicit val backend: WebSocketBackend[IO] = httpBackend
@@ -46,24 +44,18 @@ object CloudFrogApp extends IOApp {
 
         val cloudFrogBot = new CloudFrogBot(config, telegram, yandexDisk, redisCache)
 
-        Logger[IO].info("Succesfully initialized resources!") *>
+        Logger[IO].info("Successfully initialized resources!") *>
           Logger[IO].info("Starting CloudFrogBot...") *>
           cloudFrogBot.run.as(ExitCode.Success)
       }
-    }
+      .handleErrorWith(err => Logger[IO].error(s"Failed to initialize resources: $err").as(ExitCode.Error))
 
   def getResources(
       config: Config
-  ): Resource[IO, Either[String, (TelegramClient[IO], RedisCommands[IO, String, String], WebSocketBackend[IO])]] = {
-    val resources = for {
+  ): Resource[IO, (TelegramClient[IO], RedisCommands[IO, String, String], WebSocketBackend[IO])] =
+    for {
       telegram    <- TelegramClient[IO](config.bot.token)
       redisClient <- Redis[IO].utf8(config.redis.uri)
       httpBackend <- HttpClientCatsBackend.resource[IO]()
     } yield (telegram, redisClient, httpBackend)
-
-    resources.attempt.map {
-      case Left(err)  => Left(s"Failed to initialize resources: $err")
-      case Right(res) => Right(res)
-    }
-  }
 }

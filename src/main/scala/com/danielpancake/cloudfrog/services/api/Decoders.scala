@@ -10,13 +10,13 @@ import sttp.client4.Response
 object Decoders {
   def decodeError[E: Decoder](error: String)(implicit converter: E => APIError): APIError =
     decode[E](error).fold(
-      err => APIError(s"Decoding error of ${error.getClass.getName}: $error", err.getMessage),
+      err => APIError(s"Failed to decode error response: $error", err.getMessage),
       err => err
     )
 
   def decodeBody[T: Decoder](body: String): Either[APIError, T] =
     decode[T](body).fold(
-      err => Left(APIError(s"Decoding error of ${body.getClass.getName}: $body", err.getMessage)),
+      err => Left(APIError(s"Failed to decode response: $body", err.getMessage)),
       res => Right(res)
     )
 

@@ -11,7 +11,7 @@ final case class MediaMessage(
     fileId: String,
     fileUniqueId: String,
     fileName: Option[String]
-) extends TelegramMessage
+)
 
 object CanoeMessages {
   val media: Expect[MediaMessage] = {
@@ -19,8 +19,9 @@ object CanoeMessages {
       MediaMessage(m.messageId, m.chat, m.date, m.audio.fileId, m.audio.fileUniqueId, m.audio.title)
     case m: DocumentMessage =>
       MediaMessage(m.messageId, m.chat, m.date, m.document.fileId, m.document.fileUniqueId, m.document.fileName)
-    case m: PhotoMessage =>
-      MediaMessage(m.messageId, m.chat, m.date, m.photo.last.fileId, m.photo.last.fileUniqueId, None)
+    case m: PhotoMessage if m.photo.nonEmpty =>
+      val photo = m.photo.last
+      MediaMessage(m.messageId, m.chat, m.date, photo.fileId, photo.fileUniqueId, None)
     case m: VideoMessage =>
       MediaMessage(m.messageId, m.chat, m.date, m.video.fileId, m.video.fileUniqueId, None)
     case m: VideoNoteMessage =>

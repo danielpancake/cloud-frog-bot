@@ -20,7 +20,8 @@ object BotErrors {
     * @param description
     *   An optional description of the error (for logging)
     */
-  case class BotError(method: HandlingMethod, description: Option[String] = None) extends Throwable
+  case class BotError(method: HandlingMethod, description: Option[String] = None)
+      extends Exception(description.getOrElse(s"BotError($method)"))
 
   /** The method of reporting the error: sending a new message, editing an existing one, replying to a message, or only
     * logging the error
