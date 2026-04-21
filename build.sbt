@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion     := "2.13.12"
+ThisBuild / scalaVersion     := "2.13.18"
 ThisBuild / version          := "0.2.0"
 ThisBuild / organization     := "com.danielpancake.cloudfrog"
 ThisBuild / organizationName := "danielpancake"
@@ -9,7 +9,8 @@ lazy val root = (project in file("."))
   .settings(
     name := "CloudFrogBot",
     libraryDependencies ++= Dependencies.all,
-    scalacOptions ++= Compiler.options
+    scalacOptions ++= Compiler.options,
+    assembly / mainClass := Some("com.danielpancake.cloudfrog.CloudFrogApp")
   )
 
 assembly / assemblyMergeStrategy := {

@@ -3,16 +3,17 @@ import sbt._
 object Dependencies {
 
   object V {
-    val cats       = "2.10.0"
-    val catsEffect = "3.5.2"
-    val logback    = "1.2.10"
-    val log4cats   = "2.6.0"
-    val pureconfig = "0.17.4"
-    val sttp       = "4.0.0-M8"
-    val canoe      = "0.6.0"
-    val redis4cats = "1.5.2"
-    val scalaTest  = "3.2.17"
-    val mockito    = "3.2.17.0"
+    val cats         = "2.10.0"
+    val catsEffect   = "3.5.2"
+    val logback      = "1.2.10"
+    val log4cats     = "2.6.0"
+    val pureconfig   = "0.17.4"
+    val sttp         = "4.0.0-M8"
+    val canoe        = "0.6.0"
+    val redis4cats   = "1.5.2"
+    val commonsIo    = "2.15.1"
+    val scalaTest    = "3.2.17"
+    val mockito      = "3.2.17.0"
   }
 
   lazy val cats       = Seq("org.typelevel" %% "cats-core" % V.cats)
@@ -26,6 +27,8 @@ object Dependencies {
   lazy val sttp  = Seq("com.softwaremill.sttp.client4" %% "cats" % V.sttp)
   lazy val canoe = Seq("org.augustjune" %% "canoe" % V.canoe)
 
+  lazy val commonsIo = Seq("commons-io" % "commons-io" % V.commonsIo)
+
   lazy val redis4cats = Seq(
     "dev.profunktor" %% "redis4cats-effects"  % V.redis4cats,
     "dev.profunktor" %% "redis4cats-streams"  % V.redis4cats,
@@ -38,6 +41,6 @@ object Dependencies {
   )
 
   lazy val all =
-    cats ++ catsEffect ++ logback ++ log4cats ++ pureconfig ++ sttp ++ canoe ++ redis4cats ++ scalaTest
+    cats ++ catsEffect ++ logback ++ log4cats ++ pureconfig ++ sttp ++ canoe ++ redis4cats ++ commonsIo ++ scalaTest
 
 }
