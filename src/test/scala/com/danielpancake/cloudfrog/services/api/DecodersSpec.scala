@@ -23,7 +23,7 @@ class DecodersSpec extends AnyFlatSpec with Matchers {
 
   it should "fail to decode IDError with missing field" in {
     decodeError[IDError](jsonIdError2) shouldBe APIError(
-      s"Decoding error of java.lang.String: $jsonIdError2",
+      s"Failed to decode error response: $jsonIdError2",
       "Attempt to decode value on failed cursor: DownField(error_description)"
     )
   }

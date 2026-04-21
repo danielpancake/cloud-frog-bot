@@ -20,88 +20,100 @@ import sttp.model.StatusCode
 
 class YandexDiskSpec extends AnyFlatSpec with MockitoSugar with ScalaFutures with Matchers {
 
-  implicit val api: YandexDiskAPI[IO] = mock[YandexDiskAPI[IO]]
-  val yandexDisk                      = new YandexDisk[IO]
+  private def fixture(): (YandexDiskAPI[IO], YandexDisk[IO]) = {
+    val api = mock[YandexDiskAPI[IO]]
+    implicit val implicitApi: YandexDiskAPI[IO] = api
+    val disk = new YandexDisk[IO]
+    (api, disk)
+  }
 
-  val oauthToken = OAuthToken("token", "type", 1, "refresh")
+  val oauthToken = OAuthToken("token", "bearer", 3600, "refresh")
 
   "authorize" should "return successful result for valid code" in {
+    val (api, disk) = fixture()
     when(api.exchangeCodeForToken(anyString())).thenReturn(IO(Right(oauthToken)))
 
-    val call = yandexDisk.authorize("code")
-    call.unsafeRunSync() shouldBe APIResult.Success(oauthToken.access_token)
+    disk.authorize("code").unsafeRunSync() shouldBe APIResult.Success(oauthToken.accessToken)
   }
 
   it should "return failure result for invalid code" in {
+    val (api, disk) = fixture()
     when(api.exchangeCodeForToken(anyString())).thenReturn(IO(Left(APIError("error", "error"))))
 
-    val call = yandexDisk.authorize("code")
-    call.unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
+    disk.authorize("code").unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
   }
 
   "testConnection" should "return successful result for valid token" in {
+    val (api, disk) = fixture()
     when(api.testConnection(anyString())).thenReturn(IO(StatusCode(200)))
 
-    val call = yandexDisk.testConnection("token")
-    call.unsafeRunSync() shouldBe APIResult.Success
+    disk.testConnection("token").unsafeRunSync() shouldBe APIResult.Success
   }
 
   it should "return failure result for invalid token" in {
+    val (api, disk) = fixture()
     when(api.testConnection(anyString())).thenReturn(IO(StatusCode(401)))
 
-    val call = yandexDisk.testConnection("token")
-    call.unsafeRunSync() shouldBe APIResult.Failure(APIError("Connection failed", "Status code: 401"))
+    disk.testConnection("token").unsafeRunSync() shouldBe APIResult.Failure(APIError("Connection failed", "Status code: 401"))
   }
 
   "uploadFile" should "return success for completed upload" in {
+    val (api, disk) = fixture()
     when(api.makedirs(anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
     when(api.uploadFileFromURL(anyString(), anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
     when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Right(OperationStatus.Success)))
 
-    val call = yandexDisk.uploadFile("token", "url", "path")
-    call.unsafeRunSync() shouldBe APIResult.Success
+    disk.uploadFile("token", "url", "dir/file.txt").unsafeRunSync() shouldBe APIResult.Success
   }
 
-  {
+  it should "return failure for failed upload" in {
+    val (api, disk) = fixture()
     when(api.makedirs(anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
     when(api.uploadFileFromURL(anyString(), anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
+    when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Right(OperationStatus.Failure)))
 
-    it should "return failure for failed upload" in {
-      when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Right(OperationStatus.Failure)))
+    disk.uploadFile("token", "url", "dir/file.txt").unsafeRunSync() shouldBe APIResult.Failure(APIError("Upload failed", "Reason unknown"))
+  }
 
-      val call = yandexDisk.uploadFile("token", "url", "path")
-      call.unsafeRunSync() shouldBe APIResult.Failure(APIError("Upload failed", "Reason unknown"))
-    }
+  it should "return failure for upload timeout" in {
+    val (api, disk) = fixture()
+    when(api.makedirs(anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
+    when(api.uploadFileFromURL(anyString(), anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
+    when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Right(OperationStatus.InProgress)))
 
-    it should "return failure for upload timeout" in {
-      when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Right(OperationStatus.InProgress)))
-
-      val call = yandexDisk.uploadFile("token", "url", "path")
-      call.unsafeRunSync() shouldBe APIResult.Failure(APIError("Upload failed", "Reason unknown"))
-    }
+    disk.uploadFile("token", "url", "dir/file.txt").unsafeRunSync() shouldBe APIResult.Failure(APIError("Upload failed", "Reason unknown"))
   }
 
   it should "return failure for failed upload status request" in {
+    val (api, disk) = fixture()
     when(api.makedirs(anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
     when(api.uploadFileFromURL(anyString(), anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
     when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Left(APIError("error", "error"))))
 
-    val call = yandexDisk.uploadFile("token", "url", "path")
-    call.unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
+    disk.uploadFile("token", "url", "dir/file.txt").unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
   }
 
   it should "return failure for failed upload link request" in {
+    val (api, disk) = fixture()
     when(api.makedirs(anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
     when(api.uploadFileFromURL(anyString(), anyString(), anyString())).thenReturn(IO(Left(APIError("error", "error"))))
 
-    val call = yandexDisk.uploadFile("token", "url", "path")
-    call.unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
+    disk.uploadFile("token", "url", "dir/file.txt").unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
   }
 
   it should "return failure for failed makedirs request" in {
+    val (api, disk) = fixture()
     when(api.makedirs(anyString(), anyString())).thenReturn(IO(Left(APIError("error", "error"))))
 
-    val call = yandexDisk.uploadFile("token", "url", "path")
-    call.unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
+    disk.uploadFile("token", "url", "dir/file.txt").unsafeRunSync() shouldBe APIResult.Failure(APIError("error", "error"))
+  }
+
+  it should "skip makedirs for root-level files" in {
+    val (api, disk) = fixture()
+    when(api.uploadFileFromURL(anyString(), anyString(), anyString())).thenReturn(IO(Right(Link("href"))))
+    when(api.getOperationStatus(anyString(), anyString())).thenReturn(IO(Right(OperationStatus.Success)))
+
+    disk.uploadFile("token", "url", "file.txt").unsafeRunSync() shouldBe APIResult.Success
+    verify(api, never()).makedirs(anyString(), anyString())
   }
 }
