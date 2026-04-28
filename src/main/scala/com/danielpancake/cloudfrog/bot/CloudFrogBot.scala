@@ -179,13 +179,15 @@ class CloudFrogBot(
     def getFile(fileId: String): Scenario[F, File] =
       Scenario.eval(files.GetFile(fileId).call)
 
-    /** Get full path to file on Yandex.Disk. If file has a name, use it, otherwise use fileUniqueId
+    /** Get full path to file on Yandex.Disk. Files are namespaced under `/CloudFrog/<chatId>/` to keep each user's
+      * uploads isolated. If the media has a filename, use it; otherwise fall back to `<fileUniqueId>.<ext>`.
       */
     def getFileFullPath(media: MediaMessage, filePath: String): F[String] =
       Sync[F].delay {
         val (path, _, ext) = Utils.splitPathFilenameExt(filePath)
         val fileName       = media.fileName.getOrElse(s"${media.fileUniqueId}.$ext")
-        s"$path/$fileName"
+        val subPath        = if (path.isEmpty) "" else s"/$path"
+        s"/CloudFrog/${media.chat.id}$subPath/$fileName"
       }
 
     /** Upload file to Yandex.Disk
