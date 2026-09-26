@@ -1,0 +1,18 @@
+# Build output
+target/
+
+# sbt / IDE tooling
+.bsp/
+.bloop/
+.metals/
+metals.sbt
+.history/
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Local secrets
+.env
